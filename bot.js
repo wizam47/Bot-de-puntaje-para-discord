@@ -128,29 +128,32 @@ client.on('interactionCreate', async interaction => {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10); // Toma solo los primeros 10
 
-    const embed = new EmbedBuilder()
-      .setTitle('🏆 **RANKING**')
-      .setDescription('TOP 10 USUARIOS CON MÁS PUNTOS')
-      .setColor('#FF6B6B')
-      .setThumbnail('https://cdn.discordapp.com/attachments/.../tulogo.png') // Reemplaza con tu logo
-      .setFooter({ text: 'Tu logo', iconURL: 'https://cdn.discordapp.com/attachments/.../tulogo.png' });
+    // Si no hay usuarios con puntos
+    if (sortedScores.length === 0) {
+      await interaction.reply('Aún no hay usuarios en el ranking.');
+      return;
+    }
 
-    // Añade cada usuario al embed
+    // Crea un embed por cada usuario en el top 10
+    const embeds = [];
     for (const [userId, points] of sortedScores) {
       try {
         const user = await client.users.fetch(userId);
         const position = sortedScores.findIndex(([id]) => id === userId) + 1;
-        embed.addFields({
-          name: `${position} 🏅 ${user.tag}`,
-          value: `\`${points}\` puntos`,
-          inline: false
-        });
+
+        const embed = new EmbedBuilder()
+          .setTitle(`${position} 🏅 ${user.tag}`)
+          .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 64 }))
+          .setDescription(`\`${points}\` puntos`)
+          .setColor('#FF6B6B');
+
+        embeds.push(embed);
       } catch (error) {
         console.error(`Error al obtener el usuario ${userId}:`, error);
       }
     }
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.reply({ embeds: embeds });
   }
 });
 
