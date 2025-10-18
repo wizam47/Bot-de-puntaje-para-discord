@@ -82,12 +82,10 @@ client.on('ready', async () => {
   try {
     console.log('Registrando comandos de slash...');
     await rest.put(
-      Routes.applicationGuildCommands(
-        client.user.id,
-        '1399522484658634763' // Reemplaza con el ID de tu servidor
-      ),
-      { body: commands }
-    );
+  Routes.applicationCommands(client.user.id),
+  { body: commands }
+);
+
     console.log('Comandos registrados correctamente.');
   } catch (error) {
     console.error('Error al registrar comandos:', error);
