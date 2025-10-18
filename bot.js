@@ -137,11 +137,6 @@ client.on('interactionCreate', async interaction => {
       return;
     }
 
-    // Embed de presentación
-    const presentationEmbed = new EmbedBuilder()
-      .setTitle('👑 **RANKING** 👑')
-      .setColor('#FF6B6B');
-
     // Crea un embed por cada usuario en el top 5
     const embeds = [];
     for (const [userId, points] of sortedScores) {
@@ -158,7 +153,7 @@ client.on('interactionCreate', async interaction => {
         console.error(`Error al obtener el usuario ${userId}:`, error);
       }
     }
-    await interaction.reply({ embeds: [presentationEmbed, ...embeds] });
+    await interaction.reply({ embeds: embeds });
   }
 
   // Comando /reiniciar
