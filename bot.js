@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder } = require('discord.js');
+const { getPoints, setPoints, resetAllPoints, getAllScores, subtractPoints } = require('./firebase');
 
 // Inicializa el cliente
 const client = new Client({
@@ -9,9 +10,6 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
   ],
 });
-
-// Objeto para almacenar puntajes
-const scores = {};
 
 // Evento: Bot conectado
 client.on('ready', async () => {
@@ -69,7 +67,7 @@ client.on('ready', async () => {
     },
     {
       name: 'top',
-      description: 'Muestra el top 10 de usuarios con más puntos.',
+      description: 'Muestra el top 5 de usuarios con más puntos.',
     },
     {
       name: 'reiniciar',
@@ -82,10 +80,9 @@ client.on('ready', async () => {
   try {
     console.log('Registrando comandos de slash...');
     await rest.put(
-  Routes.applicationCommands(client.user.id),
-  { body: commands }
-);
-
+      Routes.applicationCommands(client.user.id),
+      { body: commands }
+    );
     console.log('Comandos registrados correctamente.');
   } catch (error) {
     console.error('Error al registrar comandos:', error);
@@ -97,50 +94,57 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   const { commandName, options } = interaction;
 
+  // Comando /asignar
   if (commandName === 'asignar') {
+    await interaction.deferReply();
     const user = options.getUser('usuario');
     const points = options.getInteger('puntos');
-    if (!scores[user.id]) scores[user.id] = 0;
-    scores[user.id] += points;
-    await interaction.reply(`${user.tag} ahora tiene ${scores[user.id]} puntos.`);
+    const currentPoints = await getPoints(user.id);
+    await setPoints(user.id, currentPoints + points);
+    await interaction.editReply(`${user.tag} ahora tiene ${await getPoints(user.id)} puntos.`);
   }
 
+  // Comando /ver
   if (commandName === 'ver') {
+    await interaction.deferReply();
     const user = options.getUser('usuario') || interaction.user;
-    const points = scores[user.id] || 0;
-    await interaction.reply(`${user.tag} tiene ${points} puntos.`);
+    const points = await getPoints(user.id);
+    await interaction.editReply(`${user.tag} tiene ${points} puntos.`);
   }
 
+  // Comando /quitar
   if (commandName === 'quitar') {
+    await interaction.deferReply();
     const user = options.getUser('usuario');
     const points = options.getInteger('puntos');
-    if (!scores[user.id] || scores[user.id] <= 0) {
-      await interaction.reply(`${user.tag} no tiene puntos para quitar.`);
+    const currentPoints = await getPoints(user.id);
+    if (currentPoints <= 0) {
+      await interaction.editReply(`${user.tag} no tiene puntos para quitar.`);
       return;
     }
-    scores[user.id] -= points;
-    if (scores[user.id] < 0) scores[user.id] = 0; // Evita puntajes negativos
-    await interaction.reply(`${user.tag} ahora tiene ${scores[user.id]} puntos.`);
+    const newPoints = await subtractPoints(user.id, points);
+    await interaction.editReply(`${user.tag} ahora tiene ${newPoints} puntos.`);
   }
 
   // Comando /top
   if (commandName === 'top') {
-    const sortedScores = Object.entries(scores)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5); // Toma solo los primeros 5
-
-    // Si no hay usuarios con puntos
-    if (sortedScores.length === 0) {
-      await interaction.reply('Aún no hay usuarios en el ranking.');
+    await interaction.deferReply();
+    const allScores = await getAllScores();
+    if (Object.keys(allScores).length === 0) {
+      await interaction.editReply('Aún no hay usuarios en el ranking.');
       return;
     }
 
-    // Crea un embed por cada usuario en el top 5
+    // Convierte el objeto a un array y ordena por puntos
+    const sortedScores = Object.entries(allScores)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+
     const embeds = [];
-    for (const [userId, points] of sortedScores) {
+    for (const [index, [userId, points]] of sortedScores.entries()) {
       try {
         const user = await client.users.fetch(userId);
-        const position = sortedScores.findIndex(([id]) => id === userId) + 1;
+        const position = index + 1;
         const embed = new EmbedBuilder()
           .setTitle(`${position} 🏅 ${user.tag}`)
           .setThumbnail(user.displayAvatarURL({ dynamic: true, size: 64 }))
@@ -151,15 +155,14 @@ client.on('interactionCreate', async interaction => {
         console.error(`Error al obtener el usuario ${userId}:`, error);
       }
     }
-    await interaction.reply({ embeds: embeds });
+    await interaction.editReply({ embeds: embeds });
   }
 
   // Comando /reiniciar
   if (commandName === 'reiniciar') {
-    for (const userId in scores) {
-      scores[userId] = 0;
-    }
-    await interaction.reply('✅ Todos los puntajes han sido reiniciados a cero.');
+    await interaction.deferReply();
+    await resetAllPoints();
+    await interaction.editReply('✅ Todos los puntajes han sido reiniciados a cero.');
   }
 });
 
