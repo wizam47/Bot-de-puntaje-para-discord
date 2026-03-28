@@ -149,10 +149,6 @@ client.on('interactionCreate', async interaction => {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5);
 
-      const presentationEmbed = new EmbedBuilder()
-        .setTitle('👑 **RANKING** 👑')
-        .setColor('#FF6B6B');
-
       const embeds = [];
       for (const [index, [userId, points]] of sortedScores.entries()) {
         try {
@@ -174,7 +170,7 @@ client.on('interactionCreate', async interaction => {
           embeds.push(embed);
         }
       }
-      await interaction.editReply({ embeds: [presentationEmbed, ...embeds] });
+      await interaction.editReply({ embeds: embeds });
     }
 
     // Comando /reiniciar
